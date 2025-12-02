@@ -1,6 +1,6 @@
 import time
 
-from math_utils import lcm_from_array
+from .math_utils import lcm_from_array
 from PIL import Image, ImageDraw
 from io import BytesIO
 import random

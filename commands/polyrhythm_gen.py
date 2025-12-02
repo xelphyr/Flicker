@@ -1,38 +1,21 @@
-from slack_sdk import WebClient
-import os
-from pathlib import Path
-from dotenv import load_dotenv
-from flask import Flask, request, Response
-from slackeventsapi import SlackEventAdapter
-from polyrhythm_gen import polyrhythm_gen
+from flask import Blueprint, request, Response
 from threading import Thread
 import requests
+import os
 
-env_path = Path('.') / '.env'
-load_dotenv(dotenv_path=env_path)
+from utils.polyrhythm_gen import polyrhythm_gen
+from services.client import client
 
-app = Flask(__name__)
-slack_events_adapter = SlackEventAdapter(
-    os.environ['SIGNING_SECRET'],'/slack/events',app)
-client = WebClient(token=os.environ['SLACK_TOKEN'])
+polyrhythm_gen_bp = Blueprint("polyrhythm_gen", __name__)
 
-@slack_events_adapter.on("app_mention")
-def handle_mention(payload):
-    event = payload.get("event", {})
-    channel_id = event.get("channel")
-    user_id = event.get("user")
-    text = event.get("text")
-
-    client.chat_postMessage(channel=channel_id, text="pong! Also: " + text)
-
-@app.route('/polyrhythm-gen', methods=['POST'])
+@polyrhythm_gen_bp.route('/polyrhythm-gen', methods=['POST'])
 def polyrhythm_generation():
     data = request.form
     channel_id = data["channel_id"]
-    client.chat_postMessage(channel=channel_id, text="Working...")
+    user_id = data["user_id"]
+    client.chat_postEphemeral(channel=channel_id, user=user_id, text="Working...")
     Thread(target=process_poly_gen, args=(data,)).start()
     return Response(), 200
-
 
 def process_poly_gen(data):
     channel_id = data["channel_id"]
@@ -62,7 +45,7 @@ def process_poly_gen(data):
     buf.seek(0)
     buf_data = buf.getvalue()
 
-    with open("test1.gif", "wb") as f:
+    with open("test.gif", "wb") as f:
         f.write(buf.getvalue())
 
     # Step 1: Getting the URL
@@ -117,7 +100,7 @@ def process_poly_gen(data):
     file_url = info["file"]["url_private"]
 
     attachment_with_slack_url = {
-        "title": "Attachment",
+        "title": f"Polyrhythm {bpm} {polyrhythm_arr}",
         "image_url": file_url,
     }
 
@@ -132,6 +115,3 @@ def process_poly_gen(data):
         raise ValueError(
             f"Failed to send the message to Slack! Status code returned from the Slack API: {response.status_code}"
         )
-
-if __name__ == '__main__':
-    app.run(debug=True)
