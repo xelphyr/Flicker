@@ -25,3 +25,4 @@ def beat_generation():
     return Response(), 200
 
 def process_beat_gen(data):
+    pass
